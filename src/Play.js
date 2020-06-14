@@ -1,13 +1,12 @@
 import React, { Component } from "react";
 import "./App.css";
-import { NeuralNetwork } from "./lib/nn";
 
-const TOTAL_BIRD = 100;
+const TOTAL_BIRD = 1;
 const HEIGHT = 500;
 const WIDTH = 800;
 const PIPE_WIDHT = 60;
 const MIN_PIPE_HEIGHT = 40;
-const FPS = 500;
+const FPS = 120;
 
 class Pipe {
   constructor(ctx, height, space) {
@@ -29,9 +28,6 @@ class Pipe {
     if (this.x + PIPE_WIDHT < 0) {
       this.isDead = true;
     }
-    if (this.x + PIPE_WIDHT < 100) {
-      this.passed = true;
-    }
   };
 }
 
@@ -45,16 +41,14 @@ function getRandomColor() {
 }
 
 class Bird {
-  constructor(ctx, brain, i) {
+  constructor(ctx) {
     this.ctx = ctx;
     this.x = 100;
-    this.y = 100 + HEIGHT / i;
-    this.gravity = 0;
+    this.y = 150;
+    this.gravity = 2.5;
     this.velocity = 0.1;
-    this.brain = brain ? brain.copy() : new NeuralNetwork(4, 10, 1);
     this.isDead = false;
     this.color = getRandomColor();
-    this.fitness = 0;
     this.age = 0;
   }
 
@@ -65,38 +59,11 @@ class Bird {
     this.ctx.fill();
   }
 
-  update = (gapCenter) => {
+  update = () => {
     this.age += 1;
     this.gravity += this.velocity;
     this.gravity = Math.min(5, this.gravity);
     this.y += this.gravity;
-
-    this.think(gapCenter);
-  };
-
-  think = (gapCenter) => {
-    const inputs = [
-      this.y / HEIGHT,
-      this.x / WIDTH,
-      gapCenter / HEIGHT,
-      this.gravity / 10,
-    ];
-    const result = this.brain.predict(inputs);
-
-    if (result[0] < 0.5) {
-      this.jump();
-    }
-  };
-
-  mutate = () => {
-    this.brain.mutate((x) => {
-      if (Math.random() < 0.1) {
-        let offset = Math.random() / 2;
-        return x + offset;
-      } else {
-        return x;
-      }
-    });
   };
 
   jump = () => {
@@ -104,46 +71,41 @@ class Bird {
   };
 }
 
-class App extends Component {
+class Play extends Component {
   constructor(props) {
     super(props);
-    this.canvasRef = React.createRef();
+    this.canvasRef2 = React.createRef();
     this.frameCount = 0;
-    this.space = 100;
+    this.space = 120;
     this.pipes = [];
     this.birds = [];
-    this.deadBirds = [];
-    this.state = { LiveScore: 0, SCORE: 0, Generation: 1, LiveBird: null };
   }
 
   componentDidMount() {
     document.addEventListener("keydown", this.onKeyDown);
     this.startGame();
   }
-
-  startGame = (birdBrain) => {
-    this.frameCount = 0;
-    clearInterval(this.loop);
-    this.pipes = [];
-    this.pipes = this.generatePipes();
-    this.birds = this.generateBirds(birdBrain);
-    this.loop = setInterval(this.gameLoop, 1000 / FPS);
-  };
-
   onKeyDown = (e) => {
     if (e.code === "Space") {
       this.birds[0].jump();
     }
   };
+  startGame = () => {
+    this.frameCount = 0;
+    clearInterval(this.loop);
+    this.pipes = [];
+    this.pipes = this.generatePipes();
+    this.birds = this.generateBirds();
+    this.loop = setInterval(this.gameLoop, 1000 / FPS);
+  };
 
-  getCtx = () => this.canvasRef.current.getContext("2d");
+  getCtx = () => this.canvasRef2.current.getContext("2d");
 
-  generateBirds = (brain) => {
+  generateBirds = () => {
     const birds = [];
     const ctx = this.getCtx();
-    for (let i = 0; i <= TOTAL_BIRD; i += 1) {
-      birds.push(new Bird(ctx, brain, i));
-      birds[i].mutate();
+    for (let i = 0; i < TOTAL_BIRD; i += 1) {
+      birds.push(new Bird(ctx));
     }
     return birds;
   };
@@ -156,7 +118,6 @@ class App extends Component {
 
     return [firstPipe, secondPipe];
   };
-
   gameLoop = () => {
     this.update();
     this.draw();
@@ -171,30 +132,15 @@ class App extends Component {
     this.pipes.forEach((pipe) => pipe.update());
     this.pipes = this.pipes.filter((pipe) => !pipe.isDead);
 
-    const topPipe = this.pipes.filter((pipe) => !pipe.passed)[0];
-    const gapCenter = topPipe.height + this.space / 2;
-
-    this.birds = this.birds.filter((bird) => !bird.isDead);
-    this.state.LiveBird = this.birds.length;
-
-    this.birds.forEach((bird) => bird.update(gapCenter));
-
     this.isGameOver();
-    this.deadBirds.push(...this.birds.filter((bird) => bird.isDead));
+    this.birds = this.birds.filter((bird) => !bird.isDead);
 
-    if (this.birds.length === 0) {
-      this.deadBirds.sort((a, b) => b.age - a.age);
-      const strongest = this.deadBirds[0];
-      this.setState({ SCORE: strongest.age });
-      this.startGame(strongest.brain);
-      this.setState({ Generation: this.state.Generation + 1 });
+    this.birds.forEach((bird) => bird.update());
 
-      this.deadBirds = [];
-      this.deadBirds.push(strongest);
+    if (this.isGameOver()) {
+      alert(`Mal Score: ${this.birds[0].age} `);
+      clearInterval(this.loop);
     }
-
-    this.frameCount % 100 === 0 &&
-      this.setState({ LiveScore: this.frameCount });
   };
 
   isGameOver = () => {
@@ -210,7 +156,6 @@ class App extends Component {
             bird.y <= pipe.y + pipe.height)
         ) {
           gameOver = true;
-          bird.isDead = true;
         }
       });
     });
@@ -218,7 +163,7 @@ class App extends Component {
   };
 
   draw() {
-    const ctx = this.canvasRef.current.getContext("2d");
+    const ctx = this.canvasRef2.current.getContext("2d");
     ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
     this.pipes.forEach((pipe) => pipe.draw());
@@ -229,20 +174,18 @@ class App extends Component {
     return (
       <div className='App'>
         <canvas
-          ref={this.canvasRef}
-          id='gameCanvas'
+          ref={this.canvasRef2}
+          id='gameCanvas2'
           width={WIDTH}
           height={HEIGHT}
           style={{ marginTop: "24px", border: "1px solid black" }}
         ></canvas>
-
-        <div>En Yüksek Skor: {this.state.SCORE}</div>
-        <div>Jenerasyon: {this.state.Generation}</div>
-        <div>Canlı Skor: {this.state.LiveScore}</div>
-        <div>Canlı Kuş sayısı: {this.state.LiveBird}</div>
+        <div>
+          <button onClick={() => this.startGame()}>Yeniden başlat</button>
+        </div>
       </div>
     );
   }
 }
 
-export default App;
+export default Play;
