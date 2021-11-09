@@ -1,5 +1,6 @@
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+![Screenshot](https://raw.githubusercontent.com/ffurkk/Simple-Ai-FlappyBird/master/public/screenShot.png)
 ## Available Scripts
 
 In the project directory, you can run:
