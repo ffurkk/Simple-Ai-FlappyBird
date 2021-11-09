@@ -1,13 +1,13 @@
 import React, { Component } from "react";
 import "./App.css";
-import { NeuralNetwork } from "./lib/nn";
+import furkiNeuralNetwork from "./lib/furkiNeuralNetwork";
 
 const TOTAL_BIRD = 100;
 const HEIGHT = 500;
 const WIDTH = 800;
 const PIPE_WIDHT = 60;
 const MIN_PIPE_HEIGHT = 40;
-const FPS = 500;
+const FPS = 1000;
 
 class Pipe {
   constructor(ctx, height, space) {
@@ -51,7 +51,7 @@ class Bird {
     this.y = 100 + HEIGHT / i;
     this.gravity = 0;
     this.velocity = 0.1;
-    this.brain = brain ? brain.copy() : new NeuralNetwork(4, 10, 1);
+    this.brain = brain ? brain.copy() : new furkiNeuralNetwork(4, 10, 2);
     this.isDead = false;
     this.color = getRandomColor();
     this.fitness = 0;
@@ -81,9 +81,9 @@ class Bird {
       gapCenter / HEIGHT,
       this.gravity / 10,
     ];
-    const result = this.brain.predict(inputs);
+    const result = this.brain.feedforward(inputs);
 
-    if (result[0] < 0.5) {
+    if (result[1] < result[0]) {
       this.jump();
     }
   };
@@ -91,7 +91,7 @@ class Bird {
   mutate = () => {
     this.brain.mutate((x) => {
       if (Math.random() < 0.1) {
-        let offset = Math.random() / 2;
+        let offset = (Math.random() * 2 - 1) / 4;
         return x + offset;
       } else {
         return x;
@@ -127,7 +127,7 @@ class App extends Component {
     this.pipes = [];
     this.pipes = this.generatePipes();
     this.birds = this.generateBirds(birdBrain);
-    this.loop = setInterval(this.gameLoop, 1000 / FPS);
+    this.loop = setInterval(this.gameLoop, 0.001);
   };
 
   onKeyDown = (e) => {
